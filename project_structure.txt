@@ -10,7 +10,6 @@ L1 project/
 │
 ├── vectorstore/
 │   ├── chroma_db/
-│   └── faiss_index/
 │
 ├── notebooks/
 │   ├── 01_data_ingestion.ipynb
