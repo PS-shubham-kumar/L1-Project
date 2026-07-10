@@ -1,0 +1,32 @@
+# LLM
+# openai
+
+# LangChain
+langchain
+langchain-community
+langchain-openai
+
+# Vector Database
+chromadb
+
+# Embeddings & NLP
+sentence-transformers
+
+# Document Loaders
+pypdf
+python-docx
+unstructured
+
+# Data Handling
+pandas
+numpy
+
+# Environment Variables
+python-dotenv
+
+# Jupyter
+notebook
+ipykernel
+
+# Token Counting
+tiktoken

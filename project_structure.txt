@@ -1,0 +1,55 @@
+L1 project/
+│
+├── data/
+│   ├── raw/
+│   │   ├── pdfs/
+│   │   ├── docs/
+│   │   └── txt/
+│   │
+│   └── processed/
+│
+├── vectorstore/
+│   ├── chroma_db/
+│   └── faiss_index/
+│
+├── notebooks/
+│   ├── 01_data_ingestion.ipynb
+│   ├── 02_embedding_generation.ipynb
+│   ├── 03_rag_pipeline.ipynb
+│   └── experiments.ipynb
+│
+├── src/
+│   │
+│   ├── ingestion/
+│   │   └── document_loader.py
+│   │
+│   ├── embeddings/
+│   │   └── embedding_model.py
+│   │
+│   ├── vectorstore/
+│   │   └── vector_db.py
+│   │
+│   ├── retriever/
+│   │   └── retriever.py
+│   │
+│   ├── llm/
+│   │   └── llm_client.py
+│   │
+│   ├── chains/
+│   │   └── rag_chain.py
+│   │
+│   └── utils/
+│       └── helper.py
+│
+├── tests/
+│   ├── test_loader.py
+│   ├── test_embedding.py
+│   └── test_retrieval.py
+│
+├── app.py
+├── config.py
+├── requirements.txt
+├── .env
+├── .gitignore
+├── README.md
+└── setup.py
