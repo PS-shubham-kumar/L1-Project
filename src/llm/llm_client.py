@@ -6,4 +6,6 @@ def get_llm():
         model=NVIDIA_MODEL,
         api_key=NVIDIA_API_KEY,
         temperature=0.7,
+        timeout=60,
+        max_tokens=1024,
     )

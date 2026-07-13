@@ -1,12 +1,12 @@
-# Environment & secrets
+# ── Secrets ───────────────────────────────────────────────
 .env
 
-# Virtual environments
+# ── Virtual environments ───────────────────────────────────
 venv/
 .venv/
 env/
 
-# Python
+# ── Python ─────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -14,22 +14,31 @@ dist/
 build/
 .eggs/
 
-# Vector store (generated data)
+# ── Vector store (generated, can be large) ─────────────────
 vectorstore/
 
-# Data — keep structure, ignore content
+# ── Raw documents (keep folder structure, ignore files) ────
 data/raw/pdfs/
 data/raw/docs/
 data/raw/txt/
 data/processed/
 
-# Notebooks
+# ── Generated / temp ───────────────────────────────────────
+project_structure.txt
+*.log
+
+# ── Tests ──────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── Notebooks ──────────────────────────────────────────────
 .ipynb_checkpoints/
 
-# IDE
+# ── IDE ────────────────────────────────────────────────────
 .vscode/
 .idea/
 
-# OS
+# ── OS ─────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db

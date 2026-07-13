@@ -27,9 +27,9 @@ def query(question: str):
     llm = get_llm()
     chain = build_rag_chain(llm, retriever)
 
-    answer = chain.invoke(question)
-    print(f"\nAnswer: {answer}")
-
+    result = chain.invoke(question)
+    print(f"\nAnswer: {result['answer']}")
+    print(f"\nSources:\n{format_sources(result['source_docs'])}")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
