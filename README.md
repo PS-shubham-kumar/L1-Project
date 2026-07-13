@@ -79,9 +79,9 @@ All settings are in `config.py`:
 |-----------|---------|-------------|
 | `NVIDIA_MODEL` | `meta/llama-3.1-70b-instruct` | LLM for answer generation |
 | `NVIDIA_EMBEDDING_MODEL` | `nvidia/nv-embedcode-7b-v1` | Embedding model |
-| `CHUNK_SIZE` | `1200` | Characters per chunk |
-| `CHUNK_OVERLAP` | `100` | Overlap between chunks |
-| `TOP_K` | `8` | Retrieved chunks per query |
+| `CHUNK_SIZE` | `800` | Characters per chunk |
+| `CHUNK_OVERLAP` | `80` | Overlap between chunks |
+| `TOP_K` | `3` | Retrieved chunks per query |
 | `CHROMA_DB_PATH` | `./vectorstore/chroma_db` | Vector store location |
 
 ## Requirements
