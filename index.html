@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>L1-Project — RAG Intelligence</title>
+
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+
+<script>
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "surface-container-high": "#f7e4df",
+        "surface-container":      "#fdeae4",
+        "outline-variant":        "#dcc1b8",
+        "on-secondary-container": "#794a3b",
+        "on-background":          "#231916",
+        "on-surface":             "#231916",
+        "on-surface-variant":     "#56423c",
+        "surface-container-low":  "#fff1ed",
+        "primary-container":      "#b95837",
+        "on-primary-container":   "#fffbff",
+        "primary":                "#9a4021",
+        "secondary":              "#835242",
+        "outline":                "#89726b",
+        "tertiary":               "#006768",
+        "tertiary-container":     "#008283",
+        "on-tertiary-container":  "#f3fffe",
+        "error":                  "#ba1a1a",
+        "error-container":        "#ffdad6",
+        "on-error-container":     "#93000a",
+        "clay-accent":            "#c96442"
+      },
+      borderRadius: { card: "16px", xxl: "12px" },
+      fontFamily:   { sans: ["Inter", "sans-serif"] }
+    }
+  }
+}
+</script>
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%; width: 100%;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background: #f0ece6;
+    overflow: hidden;
+  }
+
+  /* ── Layout shell ─────────────────────────────────── */
+  #app {
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ──────────────────────────────────────── */
+  #sidebar {
+    width: 240px;
+    min-width: 240px;
+    height: 100%;
+    background: #ffffff;
+    border-right: 1px solid #ececea;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Main area ────────────────────────────────────── */
+  #main {
+    flex: 1;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: radial-gradient(circle at 70% 10%, #faf3ea 0%, #fdeae4 55%, #e8c9a8 130%);
+    position: relative;
+  }
+
+  /* ── Material icons ───────────────────────────────── */
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 200, 'GRAD' 0, 'opsz' 24;
+    font-size: 20px;
+    line-height: 1;
+    vertical-align: middle;
+    user-select: none;
+  }
+
+  /* ── Glass surface ────────────────────────────────── */
+  .glass {
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+  }
+
+  /* ── Scrollbar ────────────────────────────────────── */
+  .scroller { overflow-y: auto; }
+  .scroller::-webkit-scrollbar { width: 4px; }
+  .scroller::-webkit-scrollbar-track { background: transparent; }
+  .scroller::-webkit-scrollbar-thumb { background: #d4cdc9; border-radius: 10px; }
+
+  /* ── Sidebar nav button ───────────────────────────── */
+  .nav-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #56423c;
+    cursor: pointer;
+    transition: background .15s;
+    border: none;
+    background: transparent;
+    text-align: left;
+  }
+  .nav-btn:hover  { background: #f5f2ee; }
+  .nav-btn.active {
+    background: #fff1ed;
+    color: #9a4021;
+    border-left: 2px solid #c96442;
+    padding-left: 12px;
+    font-weight: 700;
+  }
+  .nav-btn.active .material-symbols-outlined { color: #c96442; }
+
+  /* ── Chat bubbles ─────────────────────────────────── */
+  .bubble-user {
+    background: #c96442; color: #fff;
+    border-radius: 18px 18px 4px 18px;
+    padding: 11px 16px;
+    font-size: 14px; line-height: 1.6;
+    max-width: 75%;
+    word-wrap: break-word;
+  }
+  .bubble-ai {
+    background: rgba(255,255,255,0.92); color: #231916;
+    border-radius: 18px 18px 18px 4px;
+    border: 1px solid rgba(220,193,184,0.5);
+    padding: 11px 16px;
+    font-size: 14px; line-height: 1.6;
+    max-width: 80%;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+  }
+
+  /* ── Typing dots ──────────────────────────────────── */
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%; background: #89726b;
+    animation: blink 1.2s infinite ease-in-out;
+    display: inline-block;
+  }
+  .dot:nth-child(2) { animation-delay: .2s; }
+  .dot:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%,80%,100%{opacity:.15} 40%{opacity:1} }
+
+  /* ── Source panel ─────────────────────────────────── */
+  #source-panel {
+    width: 290px; min-width: 290px;
+    border-left: 1px solid rgba(220,193,184,0.4);
+    background: rgba(255,255,255,0.75);
+    backdrop-filter: blur(12px);
+    transform: translateX(100%);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform .28s ease, opacity .28s ease;
+    display: flex; flex-direction: column;
+  }
+  #source-panel.open {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* ── Message fade-in ──────────────────────────────── */
+  @keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+  .msg-enter { animation: fadeUp .22s ease forwards; }
+
+  /* ── Textarea ─────────────────────────────────────── */
+  #query-input, #home-input {
+    resize: none; outline: none;
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px; line-height: 1.6;
+    color: #231916;
+    width: 100%;
+  }
+  #query-input { min-height: 38px; max-height: 140px; overflow-y: auto; }
+  #home-input  { min-height: 52px; max-height: 130px; overflow-y: auto; }
+
+  /* ── Ingest modal ─────────────────────────────────── */
+  #ingest-modal {
+    display: none;
+    position: fixed; inset: 0; z-index: 60;
+    align-items: center; justify-content: center; padding: 16px;
+    background: rgba(35,25,22,.45);
+    backdrop-filter: blur(5px);
+  }
+  #ingest-modal.open { display: flex; }
+  #ingest-bar { transition: width .45s ease; }
+
+  /* Drop zone drag states */
+  #drop-zone.drag-over {
+    border-color: #c96442;
+    background: rgba(201,100,66,.06);
+  }
+
+  /* ── Toast ────────────────────────────────────────── */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    z-index: 70; display: none;
+    align-items: center; gap: 8px;
+    padding: 10px 20px; border-radius: 999px;
+    background: rgba(255,255,255,.92);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,.6);
+    box-shadow: 0 4px 20px rgba(0,0,0,.12);
+    font-size: 13px; font-weight: 500; color: #231916;
+    white-space: nowrap;
+  }
+  #toast.show { display: flex; }
+
+  /* ── Home quick cards ─────────────────────────────── */
+  .quick-card {
+    background: rgba(255,255,255,0.82);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,0.55);
+    border-radius: 14px;
+    padding: 20px;
+    cursor: pointer;
+    transition: transform .25s ease, background .2s, border-color .2s;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .quick-card:hover {
+    background: rgba(255,255,255,.97);
+    transform: translateY(-3px);
+    border-color: rgba(201,100,66,.22);
+  }
+  .card-icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: rgba(201,100,66,.1);
+    display: flex; align-items: center; justify-content: center;
+    color: #c96442;
+  }
+</style>
+</head>
+
+<body>
+<div id="app">
+
+<!-- ═══════════════════════════════════════
+     SIDEBAR
+════════════════════════════════════════ -->
+<aside id="sidebar">
+
+  <!-- Brand -->
+  <div style="padding: 22px 20px 16px; display:flex; align-items:center; gap:10px; border-bottom:1px solid #f0ece6;">
+    <div style="width:32px;height:32px;border-radius:9px;background:#c96442;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <span class="material-symbols-outlined" style="color:#fff;font-size:17px;">psychology</span>
+    </div>
+    <span style="font-size:16px;font-weight:700;color:#231916;letter-spacing:-.01em;">L1-Project</span>
+  </div>
+
+  <!-- Nav -->
+  <nav class="scroller" style="flex:1;padding:12px 8px;display:flex;flex-direction:column;gap:2px;">
+
+    <button class="nav-btn" id="btn-new-chat">
+      <span class="material-symbols-outlined">add_circle</span>New chat
+    </button>
+    <button class="nav-btn" id="btn-ingest-nav">
+      <span class="material-symbols-outlined">upload_file</span>Ingest documents
+    </button>
+    <button class="nav-btn" id="btn-sources-nav">
+      <span class="material-symbols-outlined">fact_check</span>View sources
+    </button>
+
+    <div style="height:1px;background:#f0ece6;margin:8px 6px;"></div>
+
+    <button class="nav-btn" id="btn-history-nav">
+      <span class="material-symbols-outlined">history</span>Query history
+    </button>
+    <button class="nav-btn active">
+      <span class="material-symbols-outlined">folder_special</span>Collections
+    </button>
+
+    <!-- Recents -->
+    <div style="margin-top:16px;padding:0 6px;">
+      <p style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#89726b;margin-bottom:10px;padding-left:8px;">Recent</p>
+      <div id="recent-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+  </nav>
+
+  <!-- Status bar at bottom of sidebar -->
+  <div style="padding:12px 14px;border-top:1px solid #f0ece6;display:flex;align-items:center;gap:8px;">
+    <span id="status-dot" style="width:8px;height:8px;border-radius:50%;background:#d1d5db;flex-shrink:0;"></span>
+    <span id="status-label" style="font-size:11px;color:#89726b;font-weight:500;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">Loading…</span>
+  </div>
+
+</aside>
+
+<!-- ═══════════════════════════════════════
+     MAIN PANEL
+════════════════════════════════════════ -->
+<main id="main">
+
+  <!-- ── HOME VIEW ── -->
+  <div id="view-home" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 48px;gap:32px;position:relative;z-index:1;">
+
+    <header style="text-align:center;">
+      <h1 id="greeting" style="font-size:clamp(28px,3vw,40px);font-weight:700;color:#231916;letter-spacing:-.02em;line-height:1.1;"></h1>
+      <p style="font-size:15px;color:#56423c;opacity:.8;margin-top:8px;">Analyze document datasets using NVIDIA NIM and ChromaDB.</p>
+    </header>
+
+    <!-- Home input -->
+    <div style="width:100%;max-width:680px;">
+      <div class="glass" style="border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.08);overflow:hidden;">
+        <textarea id="home-input" placeholder="Ask a question about your documents…"
+          style="padding:18px 20px 8px;"></textarea>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px 12px;">
+          <div style="display:flex;align-items:center;gap:4px;">
+            <span style="font-size:12px;color:#89726b;display:flex;align-items:center;gap:5px;padding:4px 10px;">
+              <span class="material-symbols-outlined" style="font-size:14px;">model_training</span>
+              <span id="model-label-home">Llama 3.1 8B</span>
+            </span>
+          </div>
+          <button id="home-send-btn" style="background:#c96442;border:none;border-radius:12px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(201,100,66,.35);transition:background .15s,transform .1s;">
+            <span class="material-symbols-outlined" style="color:#fff;font-size:20px;">arrow_upward</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick-start cards -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:680px;">
+      <div class="quick-card" data-action="ingest">
+        <div class="card-icon"><span class="material-symbols-outlined">upload_file</span></div>
+        <div>
+          <p style="font-size:14px;font-weight:600;color:#231916;margin-bottom:4px;">Ingest documents</p>
+          <p style="font-size:12px;color:#56423c;line-height:1.5;">Upload PDFs for chunking and NV-EmbedCode-7B indexing.</p>
+        </div>
+      </div>
+      <div class="quick-card" data-action="chat">
+        <div class="card-icon"><span class="material-symbols-outlined">chat_bubble</span></div>
+        <div>
+          <p style="font-size:14px;font-weight:600;color:#231916;margin-bottom:4px;">Ask a question</p>
+          <p style="font-size:12px;color:#56423c;line-height:1.5;">Direct query against the indexed collection.</p>
+        </div>
+      </div>
+      <div class="quick-card" data-action="sources">
+        <div class="card-icon"><span class="material-symbols-outlined">fact_check</span></div>
+        <div>
+          <p style="font-size:14px;font-weight:600;color:#231916;margin-bottom:4px;">View sources</p>
+          <p style="font-size:12px;color:#56423c;line-height:1.5;">Inspect top-K retrieval chunks and relevance scores.</p>
+        </div>
+      </div>
+      <div class="quick-card" data-action="chat">
+        <div class="card-icon"><span class="material-symbols-outlined">auto_stories</span></div>
+        <div>
+          <p style="font-size:14px;font-weight:600;color:#231916;margin-bottom:4px;">Browse the Constitution</p>
+          <p style="font-size:12px;color:#56423c;line-height:1.5;">Full-text exploration of the 404-page dataset.</p>
+        </div>
+      </div>
+    </div>
+  </div><!-- /view-home -->
+
+  <!-- ── CHAT VIEW ── -->
+  <div id="view-chat" style="display:none;flex:1;flex-direction:column;height:100%;position:relative;z-index:1;">
+
+    <!-- Chat header -->
+    <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid rgba(220,193,184,.35);background:rgba(255,255,255,.3);backdrop-filter:blur(8px);flex-shrink:0;">
+      <button id="chat-back-btn" style="background:none;border:none;cursor:pointer;padding:6px;border-radius:8px;color:#56423c;display:flex;align-items:center;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.5)'" onmouseout="this.style.background='none'">
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <div style="flex:1;overflow:hidden;">
+        <p id="chat-title" style="font-size:14px;font-weight:600;color:#231916;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">New conversation</p>
+        <p id="chat-subtitle" style="font-size:11px;color:#89726b;">Indian Constitution · RAG</p>
+      </div>
+      <button id="btn-toggle-sources" style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;border:1px solid rgba(220,193,184,.6);background:rgba(255,255,255,.7);cursor:pointer;font-size:12px;font-weight:500;color:#56423c;transition:all .15s;" onmouseover="this.style.color='#9a4021'" onmouseout="this.style.color='#56423c'">
+        <span class="material-symbols-outlined" style="font-size:16px;">menu_book</span>Sources
+      </button>
+    </div>
+
+    <!-- Messages + source panel -->
+    <div style="flex:1;display:flex;overflow:hidden;">
+
+      <!-- Messages -->
+      <div id="messages-container" class="scroller" style="flex:1;padding:20px 24px;display:flex;flex-direction:column;gap:14px;"></div>
+
+      <!-- Source panel -->
+      <div id="source-panel">
+        <div style="padding:14px 16px;border-bottom:1px solid rgba(220,193,184,.4);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+          <p style="font-size:13px;font-weight:600;color:#231916;">Retrieved sources</p>
+          <button id="btn-close-sources" style="background:none;border:none;cursor:pointer;color:#89726b;display:flex;align-items:center;" onmouseover="this.style.color='#9a4021'" onmouseout="this.style.color='#89726b'">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <div id="source-list" class="scroller" style="flex:1;padding:12px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;">
+          <p style="font-size:12px;color:#89726b;padding:4px;">Ask a question to see retrieved chunks here.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input bar -->
+    <div style="padding:12px 20px 16px;border-top:1px solid rgba(220,193,184,.3);flex-shrink:0;">
+      <div class="glass" style="border-radius:14px;box-shadow:0 2px 16px rgba(0,0,0,.07);overflow:hidden;">
+        <textarea id="query-input" rows="1" placeholder="Ask about your documents…"
+          style="padding:12px 14px 6px;"></textarea>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px 10px;">
+          <span style="font-size:12px;color:#89726b;display:flex;align-items:center;gap:5px;padding-left:4px;">
+            <span class="material-symbols-outlined" style="font-size:14px;">model_training</span>
+            <span id="model-label-chat">Llama 3.1 8B</span>
+          </span>
+          <button id="send-btn" style="background:#c96442;border:none;border-radius:10px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(201,100,66,.3);transition:background .15s,transform .1s;">
+            <span class="material-symbols-outlined" style="color:#fff;font-size:18px;">arrow_upward</span>
+          </button>
+        </div>
+      </div>
+      <p style="text-align:center;font-size:11px;color:#89726b;margin-top:8px;opacity:.8;">Answers are grounded in indexed documents — always verify critical information.</p>
+    </div>
+  </div><!-- /view-chat -->
+
+  <!-- Decorative bottom gradient -->
+  <div style="position:absolute;bottom:0;left:0;width:100%;height:80px;background:linear-gradient(to top,rgba(233,230,223,.4),transparent);pointer-events:none;z-index:0;"></div>
+
+</main><!-- /main -->
+</div><!-- /app -->
+
+<!-- ═══════════════════════════════════════
+     INGEST MODAL
+════════════════════════════════════════ -->
+<div id="ingest-modal">
+  <div class="glass" style="width:100%;max-width:460px;border-radius:18px;box-shadow:0 8px 40px rgba(0,0,0,.16);padding:28px;display:flex;flex-direction:column;gap:20px;">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="card-icon"><span class="material-symbols-outlined">upload_file</span></div>
+        <p style="font-size:17px;font-weight:700;color:#231916;">Ingest documents</p>
+      </div>
+      <button id="ingest-close-btn" style="background:none;border:none;cursor:pointer;color:#89726b;" onmouseover="this.style.color='#9a4021'" onmouseout="this.style.color='#89726b'">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+
+    <p style="font-size:13px;color:#56423c;line-height:1.6;">
+      Select or drag in your files. Supported formats:
+      <code style="background:#f7e4df;padding:2px 6px;border-radius:5px;font-size:12px;color:#9a4021;font-family:monospace;">PDF</code>
+      <code style="background:#f7e4df;padding:2px 6px;border-radius:5px;font-size:12px;color:#9a4021;font-family:monospace;">DOCX</code>
+      <code style="background:#f7e4df;padding:2px 6px;border-radius:5px;font-size:12px;color:#9a4021;font-family:monospace;">TXT</code>.
+      They are saved to <code style="background:#f7e4df;padding:2px 6px;border-radius:5px;font-size:12px;color:#9a4021;font-family:monospace;">data/raw/</code> and indexed automatically.
+    </p>
+
+    <!-- Drop zone -->
+    <div id="drop-zone"
+      style="border:2px dashed #dcc1b8;border-radius:12px;padding:28px 20px;display:flex;flex-direction:column;align-items:center;gap:10px;background:rgba(255,255,255,.45);cursor:pointer;transition:border-color .2s,background .2s;"
+      onclick="document.getElementById('file-input').click()">
+      <span class="material-symbols-outlined" style="font-size:36px;color:#c96442;">cloud_upload</span>
+      <p style="font-size:13px;font-weight:600;color:#231916;">Drop files here or <span style="color:#c96442;text-decoration:underline;">browse</span></p>
+      <p style="font-size:11px;color:#89726b;">PDF, DOCX, TXT — up to 200 MB each</p>
+      <input id="file-input" type="file" multiple
+        accept=".pdf,.docx,.doc,.txt"
+        style="display:none;">
+    </div>
+
+    <!-- Selected file list -->
+    <div id="file-list" style="display:none;flex-direction:column;gap:6px;max-height:130px;overflow-y:auto;" class="scroller"></div>
+
+    <div id="ingest-progress-area" style="display:none;flex-direction:column;gap:8px;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#56423c;">
+        <span id="ingest-status-text">Processing…</span>
+        <span id="ingest-chunk-text"></span>
+      </div>
+      <div style="height:6px;background:#f7e4df;border-radius:99px;overflow:hidden;">
+        <div id="ingest-bar" style="height:100%;background:#c96442;border-radius:99px;width:0%;"></div>
+      </div>
+    </div>
+
+    <div id="ingest-result" style="display:none;border-radius:10px;padding:12px 14px;font-size:13px;"></div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+      <!-- Danger zone: clear knowledge base -->
+      <button id="clear-kb-btn"
+        style="padding:9px 14px;border-radius:9px;border:1px solid rgba(186,26,26,.25);background:rgba(255,218,214,.4);cursor:pointer;font-size:12px;font-weight:600;color:#93000a;display:flex;align-items:center;gap:5px;transition:background .15s;"
+        onmouseover="this.style.background='rgba(255,218,214,.8)'" onmouseout="this.style.background='rgba(255,218,214,.4)'">
+        <span class="material-symbols-outlined" style="font-size:15px;">delete_sweep</span>Clear KB
+      </button>
+
+      <div style="display:flex;gap:10px;">
+        <button id="ingest-cancel-btn" style="padding:9px 18px;border-radius:9px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:500;color:#56423c;" onmouseover="this.style.background='#f7e4df'" onmouseout="this.style.background='transparent'">Cancel</button>
+        <button id="ingest-run-btn" style="padding:9px 20px;border-radius:9px;border:none;background:#c96442;color:#fff;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(201,100,66,.3);transition:background .15s;">
+          <span class="material-symbols-outlined" style="font-size:16px;">upload</span>Upload &amp; Ingest
+        </button>
+      </div>
+    </div>
+
+    <!-- Clear KB confirmation (hidden by default) -->
+    <div id="clear-confirm" style="display:none;border-radius:12px;background:#ffdad6;border:1px solid rgba(186,26,26,.2);padding:14px 16px;flex-direction:column;gap:12px;">
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <span class="material-symbols-outlined" style="color:#ba1a1a;flex-shrink:0;margin-top:1px;">warning</span>
+        <div>
+          <p style="font-size:13px;font-weight:700;color:#93000a;margin-bottom:3px;">Clear entire knowledge base?</p>
+          <p style="font-size:12px;color:#93000a;line-height:1.5;">This will permanently delete all source files in <code style="font-family:monospace;font-size:11px;">data/raw/</code> and wipe the ChromaDB vector store. This cannot be undone.</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button id="clear-cancel-btn" style="padding:7px 14px;border-radius:8px;border:1px solid rgba(186,26,26,.2);background:transparent;cursor:pointer;font-size:12px;font-weight:500;color:#93000a;">Cancel</button>
+        <button id="clear-confirm-btn" style="padding:7px 16px;border-radius:8px;border:none;background:#ba1a1a;color:#fff;cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px;transition:background .15s;" onmouseover="this.style.background='#8c0009'" onmouseout="this.style.background='#ba1a1a'">
+          <span class="material-symbols-outlined" style="font-size:14px;">delete_forever</span>Yes, clear everything
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     TOAST
+════════════════════════════════════════ -->
+<div id="toast">
+  <span id="toast-icon" class="material-symbols-outlined" style="font-size:16px;color:#c96442;">info</span>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+/* ─────────────────────────────────────────────────────
+   STATE
+───────────────────────────────────────────────────── */
+let currentSources = [];
+let recentQueries  = [];
+let isTyping       = false;
+
+/* ─────────────────────────────────────────────────────
+   INIT
+───────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  setGreeting();
+  fetchStatus();
+  bindEvents();
+  renderRecents();
+});
+
+/* ─────────────────────────────────────────────────────
+   GREETING
+───────────────────────────────────────────────────── */
+function setGreeting() {
+  const h = new Date().getHours();
+  const p = h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+  document.getElementById('greeting').textContent = `Good ${p}`;
+}
+
+/* ─────────────────────────────────────────────────────
+   STATUS
+───────────────────────────────────────────────────── */
+async function fetchStatus() {
+  try {
+    const d = await fetch('/api/status').then(r => r.json());
+    const dot   = document.getElementById('status-dot');
+    const label = document.getElementById('status-label');
+    if (d.ok && d.indexed) {
+      dot.style.background = '#c96442';
+      dot.style.boxShadow  = '0 0 0 3px rgba(201,100,66,.2)';
+      label.textContent    = d.document + ' · indexed';
+      const modelName = d.model ? d.model.split('/').pop().replace('-instruct','') : 'Llama 3.1 8B';
+      ['model-label-home','model-label-chat'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = modelName;
+      });
+    } else {
+      dot.style.background = '#9ca3af';
+      label.textContent    = 'No index · run ingest';
+    }
+  } catch {
+    document.getElementById('status-label').textContent = 'API offline';
+  }
+}
+
+/* ─────────────────────────────────────────────────────
+   VIEW SWITCHING
+───────────────────────────────────────────────────── */
+function showHome() {
+  document.getElementById('view-home').style.display = 'flex';
+  document.getElementById('view-chat').style.display = 'none';
+}
+function showChat() {
+  document.getElementById('view-home').style.display = 'none';
+  document.getElementById('view-chat').style.display = 'flex';
+}
+
+/* ─────────────────────────────────────────────────────
+   EVENTS
+───────────────────────────────────────────────────── */
+function bindEvents() {
+  // Send buttons
+  document.getElementById('home-send-btn').addEventListener('click', homeQuery);
+  document.getElementById('home-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); homeQuery(); }
+  });
+  document.getElementById('send-btn').addEventListener('click', chatQuery);
+  document.getElementById('query-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatQuery(); }
+  });
+
+  // Auto-grow
+  document.getElementById('query-input').addEventListener('input', function () {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+  });
+
+  // Nav
+  document.getElementById('btn-new-chat').addEventListener('click', () => { clearChat(); showChat(); });
+  document.getElementById('chat-back-btn').addEventListener('click', showHome);
+  document.getElementById('btn-ingest-nav').addEventListener('click', openIngestModal);
+  document.getElementById('btn-sources-nav').addEventListener('click', () => {
+    if (currentSources.length) { showChat(); openSourcePanel(); }
+    else toast('Ask a question first to see sources', 'info');
+  });
+  document.getElementById('btn-history-nav').addEventListener('click', () => {
+    toast('Query history coming soon', 'info');
+  });
+
+  // Source panel
+  document.getElementById('btn-toggle-sources').addEventListener('click', toggleSourcePanel);
+  document.getElementById('btn-close-sources').addEventListener('click', closeSourcePanel);
+
+  // Ingest modal
+  document.getElementById('ingest-close-btn').addEventListener('click', closeIngestModal);
+  document.getElementById('ingest-cancel-btn').addEventListener('click', closeIngestModal);
+  document.getElementById('ingest-run-btn').addEventListener('click', runIngest);
+  _bindDropZone();
+
+  // Clear knowledge base
+  document.getElementById('clear-kb-btn').addEventListener('click', () => {
+    document.getElementById('clear-confirm').style.display = 'flex';
+    document.getElementById('clear-kb-btn').style.display  = 'none';
+  });
+  document.getElementById('clear-cancel-btn').addEventListener('click', () => {
+    document.getElementById('clear-confirm').style.display = 'none';
+    document.getElementById('clear-kb-btn').style.display  = 'flex';
+  });
+  document.getElementById('clear-confirm-btn').addEventListener('click', clearKnowledgeBase);
+
+  // Quick-start cards
+  document.querySelectorAll('.quick-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const a = card.dataset.action;
+      if (a === 'ingest')  { openIngestModal(); }
+      if (a === 'chat')    { clearChat(); showChat(); }
+      if (a === 'sources') {
+        if (currentSources.length) { showChat(); openSourcePanel(); }
+        else { clearChat(); showChat(); toast('Ask a question first', 'info'); }
+      }
+    });
+  });
+
+  // Send button hover
+  const sendBtn = document.getElementById('home-send-btn');
+  sendBtn.addEventListener('mouseover', () => sendBtn.style.background = '#9a4021');
+  sendBtn.addEventListener('mouseout',  () => sendBtn.style.background = '#c96442');
+  const chatSend = document.getElementById('send-btn');
+  chatSend.addEventListener('mouseover', () => chatSend.style.background = '#9a4021');
+  chatSend.addEventListener('mouseout',  () => chatSend.style.background = '#c96442');
+  chatSend.addEventListener('mousedown', () => chatSend.style.transform = 'scale(.93)');
+  chatSend.addEventListener('mouseup',   () => chatSend.style.transform = 'scale(1)');
+}
+</script>
+
+<script>
+/* ─────────────────────────────────────────────────────
+   QUERY FLOW
+───────────────────────────────────────────────────── */
+function homeQuery() {
+  const el = document.getElementById('home-input');
+  const q  = el.value.trim();
+  if (!q) return;
+  el.value = '';
+  clearChat();
+  showChat();
+  sendQuery(q);
+}
+
+function chatQuery() {
+  const el = document.getElementById('query-input');
+  const q  = el.value.trim();
+  if (!q || isTyping) return;
+  el.value = '';
+  el.style.height = 'auto';
+  sendQuery(q);
+}
+
+async function sendQuery(question) {
+  if (isTyping) return;
+  isTyping = true;
+  appendMessage('user', question);
+
+  const title = document.getElementById('chat-title');
+  if (title.textContent === 'New conversation')
+    title.textContent = question.length > 45 ? question.slice(0, 45) + '…' : question;
+
+  const typingId = appendTyping();
+
+  try {
+    const res  = await fetch('/api/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question }),
+    });
+    const data = await res.json();
+    removeTyping(typingId);
+
+    if (data.ok) {
+      appendMessage('ai', data.answer, data.sources || []);
+      currentSources = data.sources || [];
+      renderSourcePanel(currentSources);
+      pushRecent(question);
+      renderRecents();
+    } else {
+      appendError(data.error || 'An error occurred.');
+    }
+  } catch {
+    removeTyping(typingId);
+    appendError('Could not reach the API. Is the Flask server running?');
+  }
+  isTyping = false;
+}
+
+/* ─────────────────────────────────────────────────────
+   MESSAGE RENDERING
+───────────────────────────────────────────────────── */
+function appendMessage(role, text, sources) {
+  const c    = document.getElementById('messages-container');
+  const wrap = document.createElement('div');
+  wrap.className = 'msg-enter';
+  wrap.style.cssText = `display:flex;gap:10px;${role === 'user' ? 'justify-content:flex-end;' : 'justify-content:flex-start;'}`;
+
+  if (role === 'ai') {
+    wrap.innerHTML = `
+      <div style="width:28px;height:28px;border-radius:50%;background:rgba(201,100,66,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">
+        <span class="material-symbols-outlined" style="font-size:14px;color:#c96442;">psychology</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;max-width:80%;">
+        <div class="bubble-ai">${escHtml(text)}</div>
+        ${sources && sources.length ? sourceChips(sources) : ''}
+      </div>`;
+  } else {
+    wrap.innerHTML = `<div class="bubble-user">${escHtml(text)}</div>`;
+  }
+  c.appendChild(wrap);
+  scrollBottom();
+}
+
+function sourceChips(sources) {
+  return '<div style="display:flex;flex-wrap:wrap;gap:6px;">' +
+    sources.map(s => `
+      <button onclick="openSourcePanel()" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;border:1px solid #dcc1b8;background:rgba(255,255,255,.7);font-size:11px;color:#56423c;cursor:pointer;transition:all .15s;" onmouseover="this.style.borderColor='rgba(201,100,66,.4)'" onmouseout="this.style.borderColor='#dcc1b8'">
+        <span class="material-symbols-outlined" style="font-size:12px;">description</span>
+        ${escHtml(s.source)}${s.page ? ' · p.' + s.page : ''}
+      </button>`).join('') +
+  '</div>';
+}
+
+function appendError(msg) {
+  const c    = document.getElementById('messages-container');
+  const wrap = document.createElement('div');
+  wrap.className = 'msg-enter';
+  wrap.style.cssText = 'display:flex;gap:10px;justify-content:flex-start;';
+  wrap.innerHTML = `
+    <div style="width:28px;height:28px;border-radius:50%;background:#ffdad6;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">
+      <span class="material-symbols-outlined" style="font-size:14px;color:#ba1a1a;">error</span>
+    </div>
+    <div style="background:#ffdad6;border:1px solid rgba(186,26,26,.2);border-radius:14px;padding:11px 15px;font-size:13px;color:#93000a;max-width:80%;">${escHtml(msg)}</div>`;
+  c.appendChild(wrap);
+  scrollBottom();
+}
+
+function appendTyping() {
+  const c    = document.getElementById('messages-container');
+  const id   = 'typing-' + Date.now();
+  const wrap = document.createElement('div');
+  wrap.id = id;
+  wrap.className = 'msg-enter';
+  wrap.style.cssText = 'display:flex;gap:10px;justify-content:flex-start;';
+  wrap.innerHTML = `
+    <div style="width:28px;height:28px;border-radius:50%;background:rgba(201,100,66,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">
+      <span class="material-symbols-outlined" style="font-size:14px;color:#c96442;">psychology</span>
+    </div>
+    <div class="bubble-ai" style="display:flex;align-items:center;gap:5px;">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    </div>`;
+  c.appendChild(wrap);
+  scrollBottom();
+  return id;
+}
+
+function removeTyping(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+function clearChat() {
+  document.getElementById('messages-container').innerHTML = '';
+  document.getElementById('chat-title').textContent = 'New conversation';
+  document.getElementById('chat-subtitle').textContent = 'Indian Constitution · RAG';
+  currentSources = [];
+  document.getElementById('source-list').innerHTML =
+    '<p style="font-size:12px;color:#89726b;padding:4px;">Ask a question to see retrieved chunks here.</p>';
+  closeSourcePanel();
+}
+
+function scrollBottom() {
+  const c = document.getElementById('messages-container');
+  c.scrollTop = c.scrollHeight;
+}
+</script>
+
+<script>
+/* ─────────────────────────────────────────────────────
+   SOURCE PANEL
+───────────────────────────────────────────────────── */
+function openSourcePanel()   { document.getElementById('source-panel').classList.add('open'); }
+function closeSourcePanel()  { document.getElementById('source-panel').classList.remove('open'); }
+function toggleSourcePanel() { document.getElementById('source-panel').classList.toggle('open'); }
+
+function renderSourcePanel(sources) {
+  const list = document.getElementById('source-list');
+  if (!sources.length) {
+    list.innerHTML = '<p style="font-size:12px;color:#89726b;padding:4px;">No sources returned.</p>';
+    return;
+  }
+  list.innerHTML = sources.map((s, i) => `
+    <div style="background:rgba(255,255,255,.75);border:1px solid #dcc1b8;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;transition:border-color .15s;" onmouseover="this.style.borderColor='rgba(201,100,66,.35)'" onmouseout="this.style.borderColor='#dcc1b8'">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;overflow:hidden;">
+          <div style="width:24px;height:24px;border-radius:6px;background:rgba(201,100,66,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <span class="material-symbols-outlined" style="font-size:13px;color:#c96442;">description</span>
+          </div>
+          <p style="font-size:12px;font-weight:600;color:#231916;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(s.source)}</p>
+        </div>
+        ${s.page ? `<span style="flex-shrink:0;font-size:10px;background:#f7e4df;color:#56423c;padding:2px 8px;border-radius:999px;">p.${s.page}</span>` : ''}
+      </div>
+      <p style="font-size:11px;color:#56423c;line-height:1.6;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;">${escHtml(s.snippet)}…</p>
+      <p style="font-size:10px;color:#c96442;font-weight:600;">Chunk ${i + 1} of ${sources.length}</p>
+    </div>`).join('');
+}
+
+/* ─────────────────────────────────────────────────────
+   INGEST MODAL
+───────────────────────────────────────────────────── */
+
+// Tracks the FileList chosen by the user
+let _stagedFiles = [];
+
+function openIngestModal() {
+  document.getElementById('ingest-modal').classList.add('open');
+  _resetIngestModal();
+}
+
+function closeIngestModal() {
+  document.getElementById('ingest-modal').classList.remove('open');
+}
+
+function _resetIngestModal() {
+  _stagedFiles = [];
+  document.getElementById('file-input').value = '';
+  document.getElementById('file-list').style.display = 'none';
+  document.getElementById('file-list').innerHTML = '';
+  document.getElementById('ingest-progress-area').style.display = 'none';
+  document.getElementById('ingest-result').style.display = 'none';
+  // Reset clear-confirm panel
+  document.getElementById('clear-confirm').style.display = 'none';
+  document.getElementById('clear-kb-btn').style.display  = 'flex';
+  const btn = document.getElementById('ingest-run-btn');
+  btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+  // Reset drop zone appearance
+  document.getElementById('drop-zone').style.borderColor = '#dcc1b8';
+  document.getElementById('drop-zone').style.background  = 'rgba(255,255,255,.45)';
+}
+
+function _stageFiles(fileList) {
+  // Merge new files into _stagedFiles (dedupe by name)
+  const existing = new Set(_stagedFiles.map(f => f.name));
+  for (const f of fileList) {
+    if (!existing.has(f.name)) { _stagedFiles.push(f); existing.add(f.name); }
+  }
+  _renderFileList();
+}
+
+function _renderFileList() {
+  const container = document.getElementById('file-list');
+  if (!_stagedFiles.length) { container.style.display = 'none'; return; }
+  container.style.display = 'flex';
+
+  const icons = { pdf: 'picture_as_pdf', docx: 'description', doc: 'description', txt: 'article' };
+  container.innerHTML = _stagedFiles.map((f, i) => {
+    const ext  = f.name.split('.').pop().toLowerCase();
+    const icon = icons[ext] || 'insert_drive_file';
+    const size = f.size < 1024 * 1024
+      ? (f.size / 1024).toFixed(0) + ' KB'
+      : (f.size / (1024 * 1024)).toFixed(1) + ' MB';
+    return `
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:9px;background:rgba(255,255,255,.75);border:1px solid #dcc1b8;">
+        <span class="material-symbols-outlined" style="font-size:16px;color:#c96442;flex-shrink:0;">${icon}</span>
+        <span style="flex:1;font-size:12px;font-weight:500;color:#231916;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(f.name)}</span>
+        <span style="font-size:11px;color:#89726b;flex-shrink:0;">${size}</span>
+        <button onclick="_removeFile(${i})" style="background:none;border:none;cursor:pointer;color:#89726b;display:flex;align-items:center;padding:2px;" title="Remove">
+          <span class="material-symbols-outlined" style="font-size:15px;">close</span>
+        </button>
+      </div>`;
+  }).join('');
+}
+
+function _removeFile(index) {
+  _stagedFiles.splice(index, 1);
+  _renderFileList();
+}
+
+function _bindDropZone() {
+  const zone  = document.getElementById('drop-zone');
+  const input = document.getElementById('file-input');
+
+  input.addEventListener('change', () => {
+    if (input.files.length) _stageFiles(input.files);
+  });
+
+  zone.addEventListener('dragover', e => {
+    e.preventDefault();
+    zone.classList.add('drag-over');
+  });
+  zone.addEventListener('dragleave', e => {
+    if (!zone.contains(e.relatedTarget)) zone.classList.remove('drag-over');
+  });
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    if (e.dataTransfer.files.length) _stageFiles(e.dataTransfer.files);
+  });
+}
+
+async function runIngest() {
+  if (!_stagedFiles.length) {
+    toast('Please select at least one file first.', 'info');
+    return;
+  }
+
+  const btn    = document.getElementById('ingest-run-btn');
+  const prog   = document.getElementById('ingest-progress-area');
+  const result = document.getElementById('ingest-result');
+  const bar    = document.getElementById('ingest-bar');
+  const stTx   = document.getElementById('ingest-status-text');
+  const chTx   = document.getElementById('ingest-chunk-text');
+
+  btn.disabled = true; btn.style.opacity = '.55'; btn.style.cursor = 'not-allowed';
+  result.style.display = 'none';
+  prog.style.display   = 'flex';
+  bar.style.width      = '0%';
+  stTx.textContent     = `Uploading ${_stagedFiles.length} file(s)…`;
+  chTx.textContent     = '';
+
+  // Build FormData
+  const form = new FormData();
+  for (const f of _stagedFiles) form.append('files', f, f.name);
+
+  // Fake progress ticker while waiting for server
+  let pct = 0;
+  const tick = setInterval(() => {
+    pct = Math.min(pct + Math.random() * 8, 80);
+    bar.style.width = pct + '%';
+  }, 300);
+
+  try {
+    stTx.textContent = 'Uploading and indexing…';
+    const res  = await fetch('/api/upload', { method: 'POST', body: form });
+    const data = await res.json();
+    clearInterval(tick);
+    bar.style.width  = '100%';
+    stTx.textContent = 'Done!';
+    result.style.display = 'block';
+
+    if (data.ok) {
+      chTx.textContent = data.chunks + ' chunks';
+      result.style.cssText = 'display:block;border-radius:10px;padding:12px 14px;font-size:13px;background:rgba(0,103,104,.08);border:1px solid rgba(0,103,104,.2);color:#004f50;';
+      const rejNote = data.rejected && data.rejected.length
+        ? `<br><span style="color:#89726b;font-size:12px;">Skipped (unsupported): ${escHtml(data.rejected.join(', '))}</span>`
+        : '';
+      result.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;color:#006768;">check_circle</span>${escHtml(data.message)}${rejNote}`;
+      _stagedFiles = [];
+      _renderFileList();
+      fetchStatus();
+    } else {
+      result.style.cssText = 'display:block;border-radius:10px;padding:12px 14px;font-size:13px;background:#ffdad6;border:1px solid rgba(186,26,26,.2);color:#93000a;';
+      result.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">error</span>${escHtml(data.error)}`;
+    }
+  } catch {
+    clearInterval(tick);
+    bar.style.width  = '0%';
+    stTx.textContent = 'Failed';
+    result.style.cssText = 'display:block;border-radius:10px;padding:12px 14px;font-size:13px;background:#ffdad6;border:1px solid rgba(186,26,26,.2);color:#93000a;';
+    result.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px;">error</span>Could not reach API. Is the server running?`;
+  }
+
+  btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+}
+
+async function clearKnowledgeBase() {
+  const confirmBtn = document.getElementById('clear-confirm-btn');
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = 'Clearing…';
+
+  try {
+    const data = await fetch('/api/clear', { method: 'POST' }).then(r => r.json());
+
+    if (data.ok) {
+      // Reset the modal fully
+      _resetIngestModal();
+      // Update status bar
+      fetchStatus();
+      toast('Knowledge base cleared. You can now upload fresh documents.', 'success');
+    } else {
+      toast('Clear failed: ' + data.error, 'error');
+    }
+  } catch {
+    toast('Could not reach API. Is the server running?', 'error');
+  }
+
+  confirmBtn.disabled = false;
+  confirmBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;">delete_forever</span>Yes, clear everything';
+}
+
+/* ─────────────────────────────────────────────────────
+   RECENT QUERIES
+───────────────────────────────────────────────────── */
+function pushRecent(q) {
+  recentQueries = [{ q, ts: Date.now() }, ...recentQueries.slice(0, 6)];
+}
+
+function timeAgo(ts) {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60)    return 'Just now';
+  if (s < 3600)  return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  return Math.floor(s / 86400) + 'd ago';
+}
+
+function renderRecents() {
+  const seed = [
+    { q: 'Article 14 - Right to Equality', ts: Date.now() - 7200000 },
+    { q: 'Preamble analysis',              ts: Date.now() - 86400000 },
+    { q: 'Directive Principles',           ts: Date.now() - 259200000 },
+  ];
+  const items = [...recentQueries, ...seed].slice(0, 5);
+  document.getElementById('recent-list').innerHTML = items.map(item => `
+    <div onclick="replayQuery(${JSON.stringify(item.q)})" style="padding:6px 8px;border-radius:8px;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='#f5f2ee'" onmouseout="this.style.background='transparent'">
+      <p style="font-size:12px;font-weight:500;color:#56423c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(item.q)}</p>
+      <p style="font-size:10px;color:#89726b;margin-top:2px;">${timeAgo(item.ts)}</p>
+    </div>`).join('');
+}
+
+function replayQuery(q) { clearChat(); showChat(); sendQuery(q); }
+
+/* ─────────────────────────────────────────────────────
+   TOAST
+───────────────────────────────────────────────────── */
+let _toastTimer;
+function toast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  document.getElementById('toast-icon').textContent =
+    type === 'error' ? 'error' : type === 'success' ? 'check_circle' : 'info';
+  document.getElementById('toast-msg').textContent = msg;
+  el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+/* ─────────────────────────────────────────────────────
+   UTILS
+───────────────────────────────────────────────────── */
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+</script>
+</body>
+</html>
