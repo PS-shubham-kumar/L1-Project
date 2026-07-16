@@ -283,7 +283,62 @@ def api_debug():
         return jsonify({"ok": False, "error": str(exc)}), 500
 
 
+@app.route("/api/evaluate", methods=["POST"])
+def api_evaluate():
+    """Run Ragas evaluation on the golden dataset and return metrics."""
+    try:
+        from tests.evaluate_rag import GOLDEN_TEST_CASES
+        from datasets import Dataset
+        from ragas import evaluate
+        from ragas.metrics import faithfulness, answer_relevancy, context_precision, context_recall
+        from ragas.llms import LangchainLLMWrapper
+        from ragas.embeddings import LangchainEmbeddingsWrapper
 
+        chain = _build_chain()
+        
+        questions = []
+        answers = []
+        contexts = []
+        ground_truths = []
+
+        for case in GOLDEN_TEST_CASES:
+            q = case["question"]
+            res = chain.invoke(q)
+            questions.append(q)
+            answers.append(res["answer"])
+            contexts.append([doc.page_content for doc in res["source_docs"]])
+            ground_truths.append(case["ground_truth"])
+
+        dataset = Dataset.from_dict({
+            "question": questions,
+            "answer": answers,
+            "contexts": contexts,
+            "ground_truth": ground_truths
+        })
+
+        llm = LangchainLLMWrapper(get_llm())
+        embeddings = LangchainEmbeddingsWrapper(get_embedding_model())
+
+        result = evaluate(
+            dataset=dataset,
+            metrics=[
+                faithfulness,
+                answer_relevancy,
+                context_precision,
+                context_recall
+            ],
+            llm=llm,
+            embeddings=embeddings
+        )
+
+        scores = {k: float(v) for k, v in result.items()}
+        return jsonify({"ok": True, "scores": scores})
+    except Exception as exc:
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/api/clear", methods=["POST"])
 def api_clear():
     """
     Delete all source files from data/raw/ and wipe the ChromaDB vector store.
@@ -359,9 +414,14 @@ if __name__ == "__main__":
     elif args[0] == "query" and len(args) == 2:
         cli_query(args[1])
 
+    elif args[0] == "evaluate":
+        from tests.evaluate_rag import run_evaluation
+        run_evaluation()
+
     else:
         print("Usage:")
         print("  python app.py                     — start web server")
         print("  python app.py ingest              — ingest data/raw documents")
         print('  python app.py query "<question>"  — run a one-off query')
+        print("  python app.py evaluate            — run Ragas pipeline evaluation")
         sys.exit(1)

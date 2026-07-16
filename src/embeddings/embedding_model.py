@@ -43,7 +43,7 @@ class BatchedNVIDIAEmbeddings(NVIDIAEmbeddings):
         ]
 
         print(f"[embeddings] Embedding {total} chunk(s) in "
-              f"{len(batches)} batch(es) of ≤{EMBED_BATCH_SIZE}.")
+              f"{len(batches)} batch(es) of <= {EMBED_BATCH_SIZE}.")
 
         for batch_idx, batch in enumerate(batches, 1):
             print(f"[embeddings] Batch {batch_idx}/{len(batches)} "

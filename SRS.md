@@ -51,15 +51,16 @@ The system allows users to:
 ## 2. Overall Description
 
 ### 2.1 Product Perspective
-L1-Project is a standalone CLI application. It uses NVIDIA's NIM API for both embeddings and LLM inference, and ChromaDB as a local persistent vector store. The system follows a two-phase workflow:
+L1-Project is a unified Web and CLI application. It runs a Flask-based web server to serve a modern single-page user interface and expose REST APIs, while maintaining CLI interfaces for local scripts. The system uses NVIDIA NIM API endpoints for both embeddings and LLM inference, and ChromaDB as a local persistent vector store. The system follows a two-phase workflow:
 
 ```
-Phase 1 — Ingest:  Documents → Chunks → Embeddings → ChromaDB
-Phase 2 — Query:   Question → Retrieve Chunks → LLM → Answer
+Phase 1 — Ingest:  Documents (PDF, DOCX, TXT) → Chunks → Embeddings (baai/bge-m3) → ChromaDB
+Phase 2 — Query:   Question → Retrieve Top-K Chunks (similarity) → LLM (Llama 3.1 8B) → Answer + Citations
 ```
 
 ### 2.2 User Classes
-- **Developer / Researcher** — runs CLI commands to ingest documents and query them
+- **Developer / Researcher** — executes CLI commands or accesses debug APIs to ingest collections and query the system.
+- **End User** — interacts with the chat assistant, uploads documents, and views sources via the web interface.
 
 ### 2.3 Operating Environment
 
@@ -83,9 +84,15 @@ The system is compatible with the following operating systems:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
+│                        index.html                       │
+│                   (Single Page Web UI)                  │
+└───────────────────────────┬─────────────────────────────┘
+                            │ (REST API via HTTP)
+                            ▼
+┌─────────────────────────────────────────────────────────┐
 │                        app.py                           │
-│              (CLI Entry Point)                          │
-│         ingest()              query()                   │
+│           (Flask Web Server & CLI Entry)                │
+│       /api/query, /api/upload, /api/ingest, ingest()    │
 └────────┬──────────────────────────┬────────────────────┘
          │                          │
          ▼                          ▼
@@ -94,14 +101,14 @@ The system is compatible with the following operating systems:
 │  (Ingestion)    │      │   (LangChain Chain)   │
 └────────┬────────┘      └──────┬───────────────┘
          │                      │
-         ▼                      ▼
+         ▼                          ▼
 ┌─────────────────┐      ┌──────────────────────┐
 │ embedding_model │      │     retriever.py      │
-│ NV-EmbedCode-7B │      │   (Top-K Semantic     │
+│     bge-m3      │      │   (Top-K Semantic     │
 │  (NVIDIA NIM)   │      │      Search)          │
 └────────┬────────┘      └──────┬───────────────┘
          │                      │
-         ▼                      ▼
+         ▼                          ▼
 ┌─────────────────┐      ┌──────────────────────┐
 │   vector_db.py  │◄─────│   vector_db.py        │
 │   ChromaDB      │      │   ChromaDB (read)     │
@@ -111,7 +118,7 @@ The system is compatible with the following operating systems:
                                  ▼
                     ┌──────────────────────┐
                     │     llm_client.py    │
-                    │  Llama 3.1 70B       │
+                    │  Llama 3.1 8B        │
                     │  (NVIDIA NIM)        │
                     └──────────────────────┘
 ```
@@ -120,71 +127,88 @@ The system is compatible with the following operating systems:
 
 | Module | File | Responsibility |
 |--------|------|----------------|
-| Entry Point | `app.py` | CLI parsing, orchestrates ingest and query flows |
-| Document Loader | `src/ingestion/document_loader.py` | Loads PDF/DOCX/TXT files, splits into chunks |
-| Embedding Model | `src/embeddings/embedding_model.py` | Generates text embeddings via NVIDIA NV-EmbedCode |
-| Vector Store | `src/vectorstore/vector_db.py` | Persists and retrieves embeddings using ChromaDB |
-| Retriever | `src/retriever/retriever.py` | Wraps vectorstore for top-K semantic retrieval |
-| LLM Client | `src/llm/llm_client.py` | Connects to NVIDIA NIM Llama 3.1 70B |
-| RAG Chain | `src/chains/rag_chain.py` | Builds the LangChain LCEL pipeline |
-| Helper | `src/utils/helper.py` | Formats source document metadata |
-| Config | `config.py` | Centralised configuration and env var loading |
+| Entry Point & Server | `app.py` | Runs Flask web server, serves static files, implements REST APIs, parses CLI arguments. |
+| Web UI Template | `index.html` | Front-end SPA built with TailwindCSS, dynamic chat list, drag-and-drop ingestion, source drawer. |
+| Document Loader | `src/ingestion/document_loader.py` | Loads PDF/DOCX/TXT files, splits into text chunks with config-defined overlap. |
+| Embedding Model | `src/embeddings/embedding_model.py` | Generates text embeddings using `baai/bge-m3` via NVIDIA NIM with exponential retry. |
+| Vector Store | `src/vectorstore/vector_db.py` | Persists and retrieves embeddings using ChromaDB. Deduplicates files on source & page. Falls back to a mock in-memory store if `chromadb` is missing. |
+| Retriever | `src/retriever/retriever.py` | Wraps vectorstore for similarity searches retrieving TOP_K chunks. |
+| LLM Client | `src/llm/llm_client.py` | Connects to NVIDIA NIM Llama 3.1 8B Instruct API. |
+| RAG Chain | `src/chains/rag_chain.py` | Builds the LangChain LCEL pipeline combining prompt context and source citations. |
+| Helper | `src/utils/helper.py` | Utility function to format source citation output for CLI/server logging. |
+| Config | `config.py` | Centralised configuration (model names, credentials, chunking thresholds). |
+| Evaluation Runner | `tests/evaluate_rag.py` | Runs Ragas-based quality evaluation on a golden dataset and saves results to CSV. |
 
 ---
 
 ## 4. Functional Requirements
 
 ### FR-01: Document Ingestion
-- The system shall accept documents in `.pdf`, `.docx`, and `.txt` formats
-- The system shall recursively scan the `./data/raw` directory for supported files
-- The system shall split documents into chunks of configurable size (default: 1000 chars) with configurable overlap (default: 100 chars)
-- The system shall generate embeddings for each chunk using NVIDIA NV-EmbedCode-7B
-- The system shall persist all embeddings to a local ChromaDB vector store at `./vectorstore/chroma_db`
+- The system shall accept documents in `.pdf`, `.docx`, `.doc`, and `.txt` formats.
+- The system shall recursively scan the `./data/raw` directory for supported files.
+- The system shall split documents into chunks of configurable size (default: 1200 chars) with configurable overlap (default: 200 chars).
+- The system shall generate embeddings for each chunk using the `baai/bge-m3` model via NVIDIA NIM APIs.
+- The system shall persist all embeddings to a local ChromaDB vector store at `./vectorstore/chroma_db` and deduplicate chunks based on source path and page number.
 
 ### FR-02: Question Answering
-- The system shall accept a natural language question as a CLI argument
-- The system shall retrieve the top-K (default: 5) most semantically relevant chunks from the vector store
-- The system shall construct a prompt combining retrieved context and the user question
-- The system shall send the prompt to NVIDIA NIM Llama 3.1 70B and return the generated answer
-- If the answer cannot be determined from context, the system shall respond with "I don't know"
+- The system shall accept natural language questions via web interface queries or CLI arguments.
+- The system shall retrieve the top-K (default: 20) most semantically relevant chunks from the vector store.
+- The system shall construct a prompt combining retrieved context blocks and the user question.
+- The system shall send the prompt to NVIDIA NIM Llama 3.1 8B Instruct and return the generated answer.
+- If the answer cannot be determined from context, the system shall respond with: `"I don't have enough information in the indexed documents to answer this."`
 
 ### FR-03: CLI Interface
-- The system shall support `python app.py ingest` to trigger document ingestion
-- The system shall support `python app.py query "<question>"` to trigger question answering
-- The system shall print usage instructions if incorrect arguments are provided
-- The system shall resolve the `src/` path using `os.path.dirname(__file__)` to ensure cross-platform compatibility on both macOS and Windows
+- The system shall support `python app.py ingest` to trigger directory scanning and database ingestion.
+- The system shall support `python app.py query "<question>"` to trigger question answering from the terminal.
+- The system shall support `python app.py evaluate` to run Ragas pipeline evaluation from the terminal.
+- The system shall display usage instructions when incorrect arguments are passed.
+- The system shall resolve local directories cross-platform using `os.path.dirname(__file__)`.
 
 ### FR-04: Source Formatting
-- The system shall be capable of formatting and displaying source document metadata (file paths) for retrieved chunks via `format_sources()`
+- The system shall format and display source citations (source document name and page number) for retrieved chunks.
+
+### FR-05: Web Interface & REST API
+- The system shall serve a responsive Single Page Application UI on `http://127.0.0.1:5000` when `python app.py` is started.
+- The web UI shall support drag-and-drop file uploading for all supported file formats.
+- The system shall automatically parse and ingest uploaded files into the vector database.
+- The web UI shall show a chat dialog interface with typewriter-like typing states, historical query records, and a side-drawer showing retrieved document snippets.
+- The backend shall expose API endpoints: `/api/status`, `/api/query`, `/api/ingest`, `/api/upload`, `/api/debug`, `/api/clear`, and `/api/evaluate`.
+
+### FR-06: Database Reset / Clearing
+- The system shall allow clearing all indexed documents and wiping the vector database clean via a `/api/clear` POST request.
+
+### FR-07: Quality Evaluation
+- The system shall support scoring answer generation using Ragas metric evaluation (faithfulness, answer relevancy, context precision, context recall) over a golden test dataset.
 
 ---
 
 ## 5. Non-Functional Requirements
 
 ### 5.1 Performance
-- Ingestion of a 400-page PDF should complete within a reasonable time bounded by NVIDIA NIM API rate limits
-- Query response time is dependent on NVIDIA NIM API latency (typically 2–10 seconds)
+- Ingestion of large document collections (e.g., 400+ pages) shall complete within limits set by the NVIDIA NIM rate caps.
+- Embeddings are generated in batch chunks of 50 to prevent HTTP API timeouts.
+- Query response times shall generally fall within 2–10 seconds, depending on API network latency.
 
 ### 5.2 Scalability
-- The chunking and vector store design supports documents of arbitrary length
-- ChromaDB supports collections of millions of vectors locally
+- The chunking and vector store design supports documents of arbitrary length.
+- ChromaDB supports local collections of millions of vectors.
 
 ### 5.3 Reliability
-- The system shall not crash on unsupported file types — unsupported files are silently skipped
-- The system shall propagate API errors clearly to the user
+- The system shall skip unsupported file types without crashing or interrupting ingestion.
+- Network and transient API errors shall trigger up to 4 retries with exponential backoff.
+- The system shall fall back to an in-memory mock store if `chromadb` is not installed on the system.
 
 ### 5.4 Security
-- The NVIDIA API key shall be stored in a `.env` file and never hardcoded in source files
-- `.env` shall be listed in `.gitignore` to prevent accidental exposure
+- The NVIDIA API key shall be stored in a local `.env` file and never committed to version control.
+- Input files are parsed and secured against directory traversal attacks via `secure_filename`.
 
 ### 5.5 Maintainability
-- All configuration values (model names, paths, chunk sizes) are centralised in `config.py`
-- Each module has a single responsibility, making it independently replaceable
+- All parameters (chunk parameters, DB paths, model names) are centralized in `config.py`.
+- Low-coupling modules enable replacing individual ingestion, embedding, or database layers independently.
 
 ### 5.6 Portability
-- The system shall run on macOS, Windows, and Linux without any code changes
-- All file paths are constructed using `os.path.join()` and `os.path.dirname(__file__)` for OS-agnostic path handling
-- No platform-specific shell commands or binaries are used
+- The application runs natively on macOS, Windows, and Linux.
+- Path operations utilize `os.path.join` for cross-platform compatibility.
 
 ---
 
@@ -194,8 +218,8 @@ The system is compatible with the following operating systems:
 
 | Property | Value |
 |----------|-------|
-| LLM Model | `meta/llama-3.1-70b-instruct` |
-| Embedding Model | `nvidia/nv-embedcode-7b-v1` |
+| LLM Model | `meta/llama-3.1-8b-instruct` |
+| Embedding Model | `baai/bge-m3` |
 | Auth | Bearer token via `NVIDIA_API_KEY` |
 | LLM Temperature | 0.7 |
 
@@ -207,12 +231,18 @@ The system is compatible with the following operating systems:
 | Path | `./vectorstore/chroma_db` |
 | Collection | `rag_collection` |
 
-### 6.3 CLI
+### 6.3 REST API Endpoints
 
-| Command | Description |
-|---------|-------------|
-| `python app.py ingest` | Ingest all documents from `./data/raw` |
-| `python app.py query "<question>"` | Query the RAG system |
+| Endpoint | Method | Payload / Arguments | Description |
+|----------|--------|---------------------|-------------|
+| `/` | `GET` | None | Serves the frontend web UI `index.html`. |
+| `/api/status` | `GET` | None | Returns database index state, active model, and summary of indexed docs. |
+| `/api/query` | `POST` | `{"question": "string"}` | Executes search and returns the AI answer alongside retrieved sources. |
+| `/api/ingest` | `POST` | None | Re-indexes all files currently inside the local `data/raw` folder. |
+| `/api/upload` | `POST` | `files` (Multipart form-data) | Uploads files to raw storage subdirs and triggers auto-ingestion. |
+| `/api/debug` | `GET` | `?q=query_string` (Optional) | Returns chunk diagnostics, list of indexed documents, and optional retrieval test. |
+| `/api/clear` | `POST` | None | Deletes all source files from raw folders and wipes ChromaDB vector database. |
+| `/api/evaluate` | `POST` | None | Evaluates RAG performance metrics using Ragas framework and returns summary scores. |
 
 ### 6.4 Platform-Specific Setup
 
@@ -221,8 +251,9 @@ The system is compatible with the following operating systems:
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-python app.py ingest
-python app.py query "Your question here"
+python app.py            # Start web UI server
+python app.py ingest     # Or run ingest via CLI
+python app.py evaluate   # Run Ragas evaluation
 ```
 
 #### Windows (Command Prompt)
@@ -230,8 +261,9 @@ python app.py query "Your question here"
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
-python app.py ingest
-python app.py query "Your question here"
+python app.py            # Start web UI server
+python app.py ingest     # Or run ingest via CLI
+python app.py evaluate   # Run Ragas evaluation
 ```
 
 #### Windows (PowerShell)
@@ -239,37 +271,33 @@ python app.py query "Your question here"
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-python app.py ingest
-python app.py query "Your question here"
+python app.py            # Start web UI server
+python app.py ingest     # Or run ingest via CLI
+python app.py evaluate   # Run Ragas evaluation
 ```
-
-> **Note for Windows PowerShell users:** If script execution is blocked, run:
-> ```powershell
-> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-> ```
 
 ---
 
 ## 7. Data Requirements
 
 ### 7.1 Input Documents
-- Supported formats: `.pdf`, `.docx`, `.txt`
-- Location: `./data/raw/` (subdirectories supported)
+- Supported formats: `.pdf`, `.docx`, `.doc`, `.txt`
+- Location: `./data/raw/` (subdirectories supported: `pdfs/`, `docs/`, `txt/`)
 - Current dataset: Indian Constitution PDF (404 pages)
 
 ### 7.2 Chunking Parameters
 
 | Parameter | Value |
 |-----------|-------|
-| Chunk Size | 1000 characters |
-| Chunk Overlap | 100 characters |
+| Chunk Size | 1200 characters |
+| Chunk Overlap | 200 characters |
 | Splitter | `RecursiveCharacterTextSplitter` |
 
 ### 7.3 Retrieval Parameters
 
 | Parameter | Value |
 |-----------|-------|
-| Top-K | 5 chunks per query |
+| Top-K | 20 chunks per query |
 | Search Type | Semantic similarity (cosine) |
 
 ---
@@ -286,13 +314,13 @@ python app.py query "Your question here"
 
 | Constant | Default | Description |
 |----------|---------|-------------|
-| `NVIDIA_MODEL` | `meta/llama-3.1-70b-instruct` | LLM model name |
-| `NVIDIA_EMBEDDING_MODEL` | `nvidia/nv-embedcode-7b-v1` | Embedding model name |
+| `NVIDIA_MODEL` | `meta/llama-3.1-8b-instruct` | LLM model name |
+| `NVIDIA_EMBEDDING_MODEL` | `baai/bge-m3` | Embedding model name |
 | `CHROMA_DB_PATH` | `./vectorstore/chroma_db` | Vector store path |
 | `COLLECTION_NAME` | `rag_collection` | ChromaDB collection name |
-| `CHUNK_SIZE` | `1000` | Characters per chunk |
-| `CHUNK_OVERLAP` | `100` | Overlap between chunks |
-| `TOP_K` | `5` | Number of chunks to retrieve |
+| `CHUNK_SIZE` | `1200` | Characters per chunk |
+| `CHUNK_OVERLAP` | `200` | Overlap between chunks |
+| `TOP_K` | `20` | Number of chunks to retrieve |
 
 ---
 
@@ -305,11 +333,15 @@ python app.py query "Your question here"
 | `langchain-nvidia-ai-endpoints` | NVIDIA NIM LLM + Embeddings integration |
 | `langchain-text-splitters` | `RecursiveCharacterTextSplitter` |
 | `chromadb` | Local vector store |
+| `langchain-chroma` | LangChain integration for ChromaDB |
 | `pypdf` | PDF text extraction |
 | `python-docx` | DOCX text extraction |
 | `python-dotenv` | `.env` file loading |
 | `tiktoken` | Token counting |
+| `flask` / `flask-cors` | Web server and API endpoints |
 | `pandas` / `numpy` | Data handling utilities |
+| `ragas` | Evaluation framework for RAG pipelines |
+| `datasets` | Dataset format wrapper required by Ragas |
 
 ---
 
@@ -317,34 +349,40 @@ python app.py query "Your question here"
 
 ```
 L1-Project/
-├── app.py                        # CLI entry point
+├── app.py                        # Flask server & CLI entry point
 ├── config.py                     # Centralised configuration
+├── index.html                    # Frontend single-page app
 ├── requirements.txt              # Python dependencies
 ├── .env                          # API keys (not committed)
 ├── .gitignore
 ├── data/
 │   └── raw/
-│       └── pdfs/
-│           └── Indian constitution.pdf
+│       ├── pdfs/                 # Raw PDF storage (e.g. Indian constitution.pdf)
+│       ├── docs/                 # Raw DOCX/DOC storage
+│       └── txt/                  # Raw TXT storage
 ├── src/
 │   ├── chains/
 │   │   └── rag_chain.py          # LangChain LCEL RAG pipeline
 │   ├── embeddings/
-│   │   └── embedding_model.py    # NVIDIA NV-EmbedCode embeddings
+│   │   └── embedding_model.py    # NVIDIA NIM Embeddings client with retry logic
 │   ├── ingestion/
-│   │   └── document_loader.py    # Document loading + chunking
+│   │   └── document_loader.py    # Document loading + recursive splitting
 │   ├── llm/
-│   │   └── llm_client.py         # NVIDIA NIM Llama 3.1 70B client
+│   │   └── llm_client.py         # NVIDIA NIM LLM client setup
 │   ├── retriever/
 │   │   └── retriever.py          # Vector store retriever wrapper
 │   ├── utils/
-│   │   └── helper.py             # Source formatting utility
+│   │   └── helper.py             # CLI formatting helpers
 │   └── vectorstore/
-│       └── vector_db.py          # ChromaDB read/write interface
+│       └── vector_db.py          # ChromaDB read/write interface & mock fallback
 ├── vectorstore/
-│   └── chroma_db/                # Persisted vector embeddings
+│   └── chroma_db/                # Persisted local ChromaDB files (git ignored)
 ├── notebooks/                    # Jupyter notebooks (exploratory)
 └── tests/                        # Test suite
+    ├── evaluate_rag.py           # Ragas evaluation pipeline script
+    ├── test_embedding.py         # Placeholder test
+    ├── test_loader.py            # Placeholder test
+    └── test_retrieval.py         # Placeholder test
 ```
 
 ---
@@ -380,6 +418,6 @@ L1-Project/
 - **API Key:** A valid `nvapi-` prefixed NVIDIA API key must be present in `.env`
 - **Re-ingestion Required:** If `CHUNK_SIZE`, `CHUNK_OVERLAP`, or the embedding model is changed, the vector store must be wiped and re-ingested
 - **Single Collection:** All documents share one ChromaDB collection; there is no per-document isolation
-- **CLI Only:** The current interface is command-line only; no web UI or REST API is provided
-- **Language:** Documents and queries are assumed to be in English
-- **Cross-Platform:** The project is compatible with macOS, Windows, and Linux with no code changes required
+- **UI Availability:** The server hosts a local SPA at port 5000, requiring local or networked browser access.
+- **Language:** Documents and queries are assumed to be in English.
+- **Cross-Platform:** The project is compatible with macOS, Windows, and Linux with no code changes required.
