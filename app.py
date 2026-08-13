@@ -290,7 +290,7 @@ def api_evaluate():
         from tests.evaluate_rag import GOLDEN_TEST_CASES
         from datasets import Dataset
         from ragas import evaluate
-        from ragas.metrics import faithfulness, answer_relevancy, context_recall
+        from ragas.metrics import Faithfulness, AnswerRelevancy, LLMContextRecall
         from ragas.llms import LangchainLLMWrapper
         from ragas.embeddings import LangchainEmbeddingsWrapper
         from ragas.run_config import RunConfig
@@ -324,9 +324,9 @@ def api_evaluate():
         result = evaluate(
             dataset=dataset,
             metrics=[
-                faithfulness,
-                answer_relevancy,
-                context_recall
+                Faithfulness(),
+                AnswerRelevancy(),
+                LLMContextRecall()
             ],
             llm=llm,
             embeddings=embeddings,

@@ -3,6 +3,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# API Keys
+NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY")
+
 # Model Specifications
 NVIDIA_MODEL = "meta/llama-3.1-8b-instruct"  # 8B instruction-tuned LLM optimized for grounded Q&A
 NVIDIA_EMBEDDING_MODEL = "nvidia/nv-embed-v1"  # 4096-dim high-capacity dense embedding model
