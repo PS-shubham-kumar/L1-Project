@@ -70,7 +70,13 @@ GOLDEN_TEST_CASES = [
     {
         "question": "What are the fundamental duties of a citizen of India under Article 51A?",
         "ground_truth": "Article 51A specifies eleven Fundamental Duties for citizens of India, which include respecting the national flag and constitution, safeguarding public property, and developing scientific temper."
-    }
+    },
+    # Out-of-scope question: verifies the system correctly rejects queries
+    # not answerable from the indexed documents (relevance gate test).
+    {
+        "question": "What is the GDP of India in 2024?",
+        "ground_truth": "I don't have enough information in the indexed documents to answer this."
+    },
 ]
 
 

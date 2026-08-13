@@ -101,6 +101,7 @@ All settings are in `config.py`:
 | `CHUNK_SIZE` | `500` | Characters per chunk |
 | `CHUNK_OVERLAP` | `50` | Overlap between chunks |
 | `TOP_K` | `20` | Retrieved chunks per query |
+| `SIMILARITY_THRESHOLD` | `0.3` | Min cosine similarity to keep a chunk |
 | `CHROMA_DB_PATH` | `./vectorstore/chroma_db` | Vector store location |
 
 ## Requirements

@@ -15,3 +15,4 @@ COLLECTION_NAME = "rag_collection"
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 50
 TOP_K = 20  # Retrieve up to 20 chunks across all indexed documents
+SIMILARITY_THRESHOLD = 0.3  # Minimum cosine similarity (0–1) to include a chunk
