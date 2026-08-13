@@ -377,7 +377,6 @@ L1-Project/
 │       └── vector_db.py          # ChromaDB read/write interface & mock fallback
 ├── vectorstore/
 │   └── chroma_db/                # Persisted local ChromaDB files (git ignored)
-├── notebooks/                    # Jupyter notebooks (exploratory)
 └── tests/                        # Test suite
     ├── evaluate_rag.py           # Ragas evaluation pipeline script
     ├── test_embedding.py         # Placeholder test

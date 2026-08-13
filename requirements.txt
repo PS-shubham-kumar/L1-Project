@@ -124,7 +124,8 @@ click==8.4.2
 Jinja2==3.1.6
 MarkupSafe==3.0.2
 
-# ── Jupyter ───────────────────────────────────────────────────────────────────
-notebook
-ipykernel
 langchain-chroma
+
+# ── Evaluation Framework ──────────────────────────────────────────────────────
+ragas==0.4.3
+datasets==3.2.0

@@ -11,12 +11,6 @@ L1 project/
 ├── vectorstore/
 │   ├── chroma_db/
 │
-├── notebooks/
-│   ├── 01_data_ingestion.ipynb
-│   ├── 02_embedding_generation.ipynb
-│   ├── 03_rag_pipeline.ipynb
-│   └── experiments.ipynb
-│
 ├── src/
 │   │
 │   ├── ingestion/
