@@ -13,18 +13,24 @@ Query:   Question → Retrieve Top-K Chunks → Llama 3.1 8B → Answer
 
 ```
 L1-Project/
-├── app.py                  # CLI entry point
+├── app.py                  # Web server & CLI entry point
 ├── config.py               # Centralised configuration
-├── data/raw/               # Place input documents here (pdf, docx, txt)
+├── index.html              # Frontend single-page app (UI)
+├── SRS.md                  # Software Requirements Specification
+├── requirements.txt        # Python dependencies
+├── data/raw/               # Input documents store (pdf, docx, txt)
 ├── vectorstore/            # ChromaDB persistent store (auto-generated)
-└── src/
-    ├── ingestion/          # Document loading & chunking
-    ├── embeddings/         # NVIDIA nv-embed-v1 embeddings
-    ├── vectorstore/        # ChromaDB read/write
-    ├── retriever/          # Top-K semantic retrieval
-    ├── llm/                # NVIDIA NIM Llama 3.1 8B client
-    ├── chains/             # LangChain LCEL RAG pipeline
-    └── utils/              # Source formatting helpers
+├── src/
+│   ├── ingestion/          # Document loading & chunking
+│   ├── embeddings/         # NVIDIA nv-embed-v1 embeddings
+│   ├── vectorstore/        # ChromaDB read/write
+│   ├── retriever/          # Top-K semantic retrieval
+│   ├── llm/                # NVIDIA NIM Llama 3.1 8B client
+│   ├── chains/             # LangChain LCEL RAG pipeline
+│   └── utils/              # Source formatting helpers
+└── tests/                  # Evaluation pipeline & benchmarks
+    ├── evaluate_rag.py     # Ragas evaluation script
+    └── evaluation_report.csv # Evaluation report metrics
 ```
 
 ## Setup
@@ -57,7 +63,14 @@ Get your API key at [build.nvidia.com](https://build.nvidia.com).
 
 ## Usage
 
-**Ingest documents**
+**Start Web Server (UI)**
+
+```bash
+python app.py
+```
+Open `http://127.0.0.1:5000` in your browser.
+
+**Ingest documents via CLI**
 
 Place your files (`.pdf`, `.docx`, `.txt`) inside `data/raw/`, then run:
 
@@ -65,10 +78,16 @@ Place your files (`.pdf`, `.docx`, `.txt`) inside `data/raw/`, then run:
 python app.py ingest
 ```
 
-**Query**
+**Query via CLI**
 
 ```bash
 python app.py query "What are the fundamental rights?"
+```
+
+**Run RAG Evaluation**
+
+```bash
+python app.py evaluate
 ```
 
 ## Configuration

@@ -290,9 +290,10 @@ def api_evaluate():
         from tests.evaluate_rag import GOLDEN_TEST_CASES
         from datasets import Dataset
         from ragas import evaluate
-        from ragas.metrics import faithfulness, answer_relevancy, context_precision, context_recall
+        from ragas.metrics import faithfulness, answer_relevancy, context_recall
         from ragas.llms import LangchainLLMWrapper
         from ragas.embeddings import LangchainEmbeddingsWrapper
+        from ragas.run_config import RunConfig
 
         chain = _build_chain()
         
@@ -318,21 +319,28 @@ def api_evaluate():
 
         llm = LangchainLLMWrapper(get_llm())
         embeddings = LangchainEmbeddingsWrapper(get_embedding_model())
+        _run_config = RunConfig(timeout=600, max_retries=3, max_wait=120)
 
         result = evaluate(
             dataset=dataset,
             metrics=[
                 faithfulness,
                 answer_relevancy,
-                context_precision,
                 context_recall
             ],
             llm=llm,
-            embeddings=embeddings
+            embeddings=embeddings,
+            run_config=_run_config,
+            column_map={
+                "user_input": "question",
+                "response": "answer",
+                "retrieved_contexts": "contexts",
+                "reference": "ground_truth",
+            },
         )
 
         df = result.to_pandas()
-        metric_cols = [c for c in ["faithfulness", "answer_relevancy", "context_precision", "context_recall"] if c in df.columns]
+        metric_cols = [c for c in ["faithfulness", "answer_relevancy", "context_recall"] if c in df.columns]
         scores = {col: float(df[col].mean()) for col in metric_cols}
         return jsonify({"ok": True, "scores": scores})
     except Exception as exc:

@@ -31,10 +31,6 @@ project_structure.txt
 .pytest_cache/
 .coverage
 htmlcov/
-tests/test_embedding.py
-tests/test_loader.py
-tests/test_retrieval.py
-
 
 # ── IDE ────────────────────────────────────────────────────
 .vscode/
