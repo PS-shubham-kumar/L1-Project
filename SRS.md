@@ -28,14 +28,25 @@
 ## 1. Introduction
 
 ### 1.1 Purpose
-This document specifies the software requirements for the L1-Project, a Retrieval-Augmented Generation (RAG) system that enables natural language question answering over large document collections. The initial use case is querying the Indian Constitution (404 pages).
+This document specifies the software requirements for the L1-Project, a Retrieval-Augmented Generation (RAG) system that enables natural language question answering over large document collections. The primary use case is querying the Indian Constitution (404 pages).
 
-### 1.2 Scope
+### 1.2 Problem Statement & Use Case
+
+#### 1.2.1 Problem Statement
+Navigating, searching, and extracting accurate information from large, complex legal document collections—such as the 404-page *Constitution of India*—is time-consuming and error-prone using standard keyword search. Users face several key challenges:
+- **Context Loss**: Traditional keyword queries miss semantically relevant passages when legal concepts are phrased differently.
+- **Hallucination Risk**: Standard LLMs can fabricate legal clauses or cite incorrect articles when generating responses without strict context grounding.
+- **Lack of Traceability**: Users require exact source document and page-level citations (e.g., `[Source: constitution.pdf, page 5]`) to verify claims against authoritative legal texts.
+
+#### 1.2.2 Solution
+This repository delivers an end-to-end, context-grounded **Retrieval-Augmented Generation (RAG)** assistant powered by **NVIDIA NIM APIs** (`nvidia/nv-embed-v1` dense embeddings & `meta/llama-3.1-8b-instruct`) and **ChromaDB** vector database. The system ingests multi-format documents (PDF, DOCX, TXT), splits them into semantic chunks, enforces similarity thresholding to filter out low-relevance noise, and synthesizes accurate, factual answers bound strictly to retrieved context with full citation tracking.
+
+### 1.3 Scope
 The system allows users to:
 - Ingest documents (PDF, DOCX, TXT) into a persistent vector store
 - Ask natural language questions and receive context-grounded answers powered by a large language model (LLM)
 
-### 1.3 Definitions
+### 1.4 Definitions
 
 | Term | Definition |
 |------|-----------|
