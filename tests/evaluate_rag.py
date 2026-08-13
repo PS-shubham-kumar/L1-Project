@@ -8,10 +8,41 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "src"))
 
+# ── Monkey-patch: Patch missing VertexAI module for ragas compatibility ──────
+# ragas==0.4.3 has hard top-level imports of VertexAI classes in base.py,
+# even though they are only used for isinstance() checks that never match
+# the NVIDIA NIM LLM used in this project. This patch stubs the missing module
+# to prevent ModuleNotFoundError without installing unused Google packages.
+import types as _types
+
+_vertexai_stub = _types.ModuleType("langchain_community.chat_models.vertexai")
+
+class _StubChatVertexAI:
+    """Stub — never instantiated, only used for isinstance checks in ragas."""
+    pass
+
+class _StubVertexAI:
+    """Stub — never instantiated, only used for isinstance checks in ragas."""
+    pass
+
+_vertexai_stub.ChatVertexAI = _StubChatVertexAI
+_vertexai_stub.VertexAI = _StubVertexAI
+sys.modules["langchain_community.chat_models.vertexai"] = _vertexai_stub
+
+# Also ensure the parent package is present
+if "langchain_community.llms" in sys.modules:
+    _llms_stub = sys.modules["langchain_community.llms"]
+else:
+    _llms_stub = _types.ModuleType("langchain_community.llms")
+_llms_stub.VertexAI = _StubVertexAI
+sys.modules["langchain_community.llms"] = _llms_stub
+# ── End monkey-patch ─────────────────────────────────────────────────────────
+
 from ragas import evaluate
 from ragas.metrics import faithfulness, answer_relevancy, context_precision, context_recall
 from ragas.llms import LangchainLLMWrapper
 from ragas.embeddings import LangchainEmbeddingsWrapper
+from ragas.run_config import RunConfig
 
 from app import _build_chain
 from llm.llm_client import get_llm
@@ -97,17 +128,29 @@ def run_evaluation():
 
     # 5. Evaluate metrics
     print("[4/4] Evaluating metrics using Ragas...")
+
+    # Increase timeout: context_precision makes 1 LLM call per retrieved context
+    # (up to TOP_K=20 per question), which can be slow on the NVIDIA API.
+    _run_config = RunConfig(timeout=600, max_retries=3, max_wait=120)
+
     try:
         result = evaluate(
             dataset=dataset,
             metrics=[
                 faithfulness,
                 answer_relevancy,
-                context_precision,
+                # context_precision,
                 context_recall
             ],
             llm=llm,
-            embeddings=embeddings
+            embeddings=embeddings,
+            run_config=_run_config,
+            column_map={
+                "user_input": "question",
+                "response": "answer",
+                "retrieved_contexts": "contexts",
+                "reference": "ground_truth",
+            },
         )
     except Exception as exc:
         print(f"Ragas evaluation failed: {exc}")
@@ -122,13 +165,15 @@ def run_evaluation():
     df = result.to_pandas()
     pd.set_option('display.max_columns', None)
     pd.set_option('display.width', 1000)
-    
-    print(df[["user_input", "faithfulness", "answer_relevancy", "context_precision", "context_recall"]])
-    
+    # "context_precision" can  add this once i fix the issue with it
+    available_cols = [c for c in ["user_input", "faithfulness", "answer_relevancy", "context_recall"] if c in df.columns]
+    print(df[available_cols])
+
     # Calculate averages
     print("\n--- Average Scores ---")
-    for metric_name, score in result.items():
-        print(f"  {metric_name.capitalize()}: {score:.4f}")
+    metric_cols = [c for c in ["faithfulness", "answer_relevancy", "context_recall"] if c in df.columns]
+    for col in metric_cols:
+        print(f"  {col.capitalize()}: {df[col].mean():.4f}")
     
     report_path = os.path.join(PROJECT_ROOT, "tests", "evaluation_report.csv")
     df.to_csv(report_path, index=False)

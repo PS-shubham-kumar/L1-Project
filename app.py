@@ -331,7 +331,9 @@ def api_evaluate():
             embeddings=embeddings
         )
 
-        scores = {k: float(v) for k, v in result.items()}
+        df = result.to_pandas()
+        metric_cols = [c for c in ["faithfulness", "answer_relevancy", "context_precision", "context_recall"] if c in df.columns]
+        scores = {col: float(df[col].mean()) for col in metric_cols}
         return jsonify({"ok": True, "scores": scores})
     except Exception as exc:
         traceback.print_exc()

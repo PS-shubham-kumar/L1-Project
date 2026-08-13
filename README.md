@@ -5,8 +5,8 @@ A Retrieval-Augmented Generation (RAG) system for natural language question answ
 ## How It Works
 
 ```
-Ingest:  Documents → Chunks → Embeddings (NV-EmbedCode-7B) → ChromaDB
-Query:   Question → Retrieve Top-K Chunks → Llama 3.1 70B → Answer
+Ingest:  Documents → Chunks → Embeddings (nv-embed-v1) → ChromaDB
+Query:   Question → Retrieve Top-K Chunks → Llama 3.1 8B → Answer
 ```
 
 ## Project Structure
@@ -19,10 +19,10 @@ L1-Project/
 ├── vectorstore/            # ChromaDB persistent store (auto-generated)
 └── src/
     ├── ingestion/          # Document loading & chunking
-    ├── embeddings/         # NVIDIA NV-EmbedCode-7B embeddings
+    ├── embeddings/         # NVIDIA nv-embed-v1 embeddings
     ├── vectorstore/        # ChromaDB read/write
     ├── retriever/          # Top-K semantic retrieval
-    ├── llm/                # NVIDIA NIM Llama 3.1 70B client
+    ├── llm/                # NVIDIA NIM Llama 3.1 8B client
     ├── chains/             # LangChain LCEL RAG pipeline
     └── utils/              # Source formatting helpers
 ```
@@ -77,11 +77,11 @@ All settings are in `config.py`:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `NVIDIA_MODEL` | `meta/llama-3.1-70b-instruct` | LLM for answer generation |
-| `NVIDIA_EMBEDDING_MODEL` | `nvidia/nv-embedcode-7b-v1` | Embedding model |
-| `CHUNK_SIZE` | `800` | Characters per chunk |
-| `CHUNK_OVERLAP` | `80` | Overlap between chunks |
-| `TOP_K` | `3` | Retrieved chunks per query |
+| `NVIDIA_MODEL` | `meta/llama-3.1-8b-instruct` | LLM for answer generation |
+| `NVIDIA_EMBEDDING_MODEL` | `nvidia/nv-embed-v1` | Embedding model |
+| `CHUNK_SIZE` | `500` | Characters per chunk |
+| `CHUNK_OVERLAP` | `50` | Overlap between chunks |
+| `TOP_K` | `20` | Retrieved chunks per query |
 | `CHROMA_DB_PATH` | `./vectorstore/chroma_db` | Vector store location |
 
 ## Requirements

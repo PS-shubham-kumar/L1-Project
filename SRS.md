@@ -54,7 +54,7 @@ The system allows users to:
 L1-Project is a unified Web and CLI application. It runs a Flask-based web server to serve a modern single-page user interface and expose REST APIs, while maintaining CLI interfaces for local scripts. The system uses NVIDIA NIM API endpoints for both embeddings and LLM inference, and ChromaDB as a local persistent vector store. The system follows a two-phase workflow:
 
 ```
-Phase 1 — Ingest:  Documents (PDF, DOCX, TXT) → Chunks → Embeddings (baai/bge-m3) → ChromaDB
+Phase 1 — Ingest:  Documents (PDF, DOCX, TXT) → Chunks → Embeddings (nv-embed-v1) → ChromaDB
 Phase 2 — Query:   Question → Retrieve Top-K Chunks (similarity) → LLM (Llama 3.1 8B) → Answer + Citations
 ```
 
@@ -93,25 +93,25 @@ The system is compatible with the following operating systems:
 │                        app.py                           │
 │           (Flask Web Server & CLI Entry)                │
 │       /api/query, /api/upload, /api/ingest, ingest()    │
-└────────┬──────────────────────────┬────────────────────┘
+└────────┬──────────────────────────┬─────────────────────┘
          │                          │
          ▼                          ▼
 ┌─────────────────┐      ┌──────────────────────┐
-│ document_loader │      │     rag_chain.py      │
-│  (Ingestion)    │      │   (LangChain Chain)   │
+│ document_loader │      │     rag_chain.py     │
+│  (Ingestion)    │      │   (LangChain Chain)  │
 └────────┬────────┘      └──────┬───────────────┘
          │                      │
-         ▼                          ▼
+         ▼                      ▼
 ┌─────────────────┐      ┌──────────────────────┐
-│ embedding_model │      │     retriever.py      │
-│     bge-m3      │      │   (Top-K Semantic     │
-│  (NVIDIA NIM)   │      │      Search)          │
+│ embedding_model │      │     retriever.py     │
+│  nv-embed-v1    │      │   (Top-K Semantic    │
+│  (NVIDIA NIM)   │      │      Search)         │
 └────────┬────────┘      └──────┬───────────────┘
          │                      │
-         ▼                          ▼
+         ▼                      ▼
 ┌─────────────────┐      ┌──────────────────────┐
-│   vector_db.py  │◄─────│   vector_db.py        │
-│   ChromaDB      │      │   ChromaDB (read)     │
+│   vector_db.py  │◄─────│   vector_db.py       │
+│   ChromaDB      │      │   ChromaDB (read)    │
 │   (persist)     │      └──────────────────────┘
 └─────────────────┘
                                  │
@@ -130,7 +130,7 @@ The system is compatible with the following operating systems:
 | Entry Point & Server | `app.py` | Runs Flask web server, serves static files, implements REST APIs, parses CLI arguments. |
 | Web UI Template | `index.html` | Front-end SPA built with TailwindCSS, dynamic chat list, drag-and-drop ingestion, source drawer. |
 | Document Loader | `src/ingestion/document_loader.py` | Loads PDF/DOCX/TXT files, splits into text chunks with config-defined overlap. |
-| Embedding Model | `src/embeddings/embedding_model.py` | Generates text embeddings using `baai/bge-m3` via NVIDIA NIM with exponential retry. |
+| Embedding Model | `src/embeddings/embedding_model.py` | Generates text embeddings using `nv-embed-v1` via NVIDIA NIM with exponential retry. |
 | Vector Store | `src/vectorstore/vector_db.py` | Persists and retrieves embeddings using ChromaDB. Deduplicates files on source & page. Falls back to a mock in-memory store if `chromadb` is missing. |
 | Retriever | `src/retriever/retriever.py` | Wraps vectorstore for similarity searches retrieving TOP_K chunks. |
 | LLM Client | `src/llm/llm_client.py` | Connects to NVIDIA NIM Llama 3.1 8B Instruct API. |
@@ -146,8 +146,8 @@ The system is compatible with the following operating systems:
 ### FR-01: Document Ingestion
 - The system shall accept documents in `.pdf`, `.docx`, `.doc`, and `.txt` formats.
 - The system shall recursively scan the `./data/raw` directory for supported files.
-- The system shall split documents into chunks of configurable size (default: 1200 chars) with configurable overlap (default: 200 chars).
-- The system shall generate embeddings for each chunk using the `baai/bge-m3` model via NVIDIA NIM APIs.
+- The system shall split documents into chunks of configurable size (default: 500 chars) with configurable overlap (default: 50 chars).
+- The system shall generate embeddings for each chunk using the `nv-embed-v1` model via NVIDIA NIM APIs.
 - The system shall persist all embeddings to a local ChromaDB vector store at `./vectorstore/chroma_db` and deduplicate chunks based on source path and page number.
 
 ### FR-02: Question Answering
@@ -216,10 +216,10 @@ The system is compatible with the following operating systems:
 
 ### 6.1 NVIDIA NIM API
 
-| Property | Value |
-|----------|-------|
+| Property |            Value              |
+|----------|-------  ------- -------       |
 | LLM Model | `meta/llama-3.1-8b-instruct` |
-| Embedding Model | `baai/bge-m3` |
+| Embedding Model | `nv-embed-v1`          |
 | Auth | Bearer token via `NVIDIA_API_KEY` |
 | LLM Temperature | 0.7 |
 
@@ -227,9 +227,9 @@ The system is compatible with the following operating systems:
 
 | Property | Value |
 |----------|-------|
-| Type | Local persistent store |
+| Type | Local persistent store    |
 | Path | `./vectorstore/chroma_db` |
-| Collection | `rag_collection` |
+| Collection | `rag_collection`    |
 
 ### 6.3 REST API Endpoints
 
@@ -289,8 +289,8 @@ python app.py evaluate   # Run Ragas evaluation
 
 | Parameter | Value |
 |-----------|-------|
-| Chunk Size | 1200 characters |
-| Chunk Overlap | 200 characters |
+| Chunk Size | 500 characters |
+| Chunk Overlap | 50 characters |
 | Splitter | `RecursiveCharacterTextSplitter` |
 
 ### 7.3 Retrieval Parameters
@@ -315,11 +315,11 @@ python app.py evaluate   # Run Ragas evaluation
 | Constant | Default | Description |
 |----------|---------|-------------|
 | `NVIDIA_MODEL` | `meta/llama-3.1-8b-instruct` | LLM model name |
-| `NVIDIA_EMBEDDING_MODEL` | `baai/bge-m3` | Embedding model name |
+| `NVIDIA_EMBEDDING_MODEL` | `nv-embed-v1` | Embedding model name |
 | `CHROMA_DB_PATH` | `./vectorstore/chroma_db` | Vector store path |
 | `COLLECTION_NAME` | `rag_collection` | ChromaDB collection name |
-| `CHUNK_SIZE` | `1200` | Characters per chunk |
-| `CHUNK_OVERLAP` | `200` | Overlap between chunks |
+| `CHUNK_SIZE` | `500` | Characters per chunk |
+| `CHUNK_OVERLAP` | `50` | Overlap between chunks |
 | `TOP_K` | `20` | Number of chunks to retrieve |
 
 ---

@@ -15,7 +15,7 @@ build/
 .eggs/
 
 # ── Vector store (generated, can be large) ─────────────────
-vectorstore/
+vectorstore/chroma_db
 
 # ── Raw documents (keep folder structure, ignore files) ────
 data/raw/pdfs/
@@ -42,3 +42,6 @@ htmlcov/
 # ── OS ─────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+# ── Unwanted files ─────────────────────────────────────────────────────
+.csv
+.txt
